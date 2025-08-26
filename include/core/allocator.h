@@ -27,7 +27,10 @@ namespace infini {
     // TODO：可能需要设计一个数据结构来存储free block，以便于管理和合并
     // HINT: 可以使用一个 map 来存储 free block，key 为 block 的起始/结尾地址，value 为 block 的大小
     // =================================== 作业 ===================================
-
+    //<address, blocksize>
+    std::map<size_t, size_t> free_blocks;
+  
+    
   public:
     Allocator(Runtime runtime);
 
@@ -55,5 +58,11 @@ namespace infini {
     // function: memory alignment, rouned up
     // return: size of the aligned memory block
     size_t getAlignedSize(size_t size);
+    
+    // function: merge adjacent free blocks
+    // arguments:
+    //     addr: address of the newly freed block
+    //     size: size of the newly freed block
+    void mergeAdjacentBlocks(size_t addr, size_t size);
   };
 }
