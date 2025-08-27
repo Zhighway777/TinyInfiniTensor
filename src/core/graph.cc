@@ -153,10 +153,11 @@ namespace infini
         // HINT: 获取分配好的内存指针后，可以调用 tensor 的 setDataBlob 函数给 tensor 绑定内存
         // =================================== 作业 ===================================
         
-        // 为所有tensor分配内存，避免重复分配
+        // 第一阶段：收集所有tensor的内存需求并分配偏移
         std::unordered_set<TensorObj*> allocated_tensors;
+        std::vector<std::pair<Tensor, size_t>> tensor_offsets;
         
-        // 遍历所有tensor，而不只是输出tensor
+        // 遍历所有tensor，分配内存偏移
         for (auto &tensor : tensors)
         {
             if (tensor && allocated_tensors.find(tensor.get()) == allocated_tensors.end())
@@ -167,22 +168,29 @@ namespace infini
                 // 使用allocator分配内存地址偏移
                 size_t offset = allocator.alloc(tensor_size);
                 
-                // 获取实际的内存指针
-                void *ptr = allocator.getPtr();
-                if (ptr)
-                {
-                    // 计算实际的内存地址
-                    void *tensor_ptr = static_cast<char*>(ptr) + offset;
-                    
-                    // 创建Blob对象
-                    Blob blob = make_ref<BlobObj>(runtime, tensor_ptr);
-                    
-                    // 绑定内存到tensor
-                    tensor->setDataBlob(blob);
-                    
-                    // 标记为已分配
-                    allocated_tensors.insert(tensor.get());
-                }
+                // 保存tensor和偏移的对应关系
+                tensor_offsets.emplace_back(tensor, offset);
+                allocated_tensors.insert(tensor.get());
+            }
+        }
+        
+        // 第二阶段：获取实际内存指针并绑定到tensor
+        void *base_ptr = allocator.getPtr();
+        if (base_ptr)
+        {
+            for (const auto &pair : tensor_offsets)
+            {
+                auto tensor = pair.first;
+                size_t offset = pair.second;
+                
+                // 计算实际的内存地址
+                void *tensor_ptr = static_cast<char*>(base_ptr) + offset;
+                
+                // 创建Blob对象
+                Blob blob = make_ref<BlobObj>(runtime, tensor_ptr);
+                
+                // 绑定内存到tensor
+                tensor->setDataBlob(blob);
             }
         }
         
