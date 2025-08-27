@@ -153,33 +153,35 @@ namespace infini
         // HINT: 获取分配好的内存指针后，可以调用 tensor 的 setDataBlob 函数给 tensor 绑定内存
         // =================================== 作业 ===================================
         
-        // 为所有tensor分配内存
-        for (auto &op : ops)
+        // 为所有tensor分配内存，避免重复分配
+        std::unordered_set<TensorObj*> allocated_tensors;
+        
+        // 遍历所有tensor，而不只是输出tensor
+        for (auto &tensor : tensors)
         {
-            // 为operator的所有输出tensor分配内存
-            for (auto &tensor : op->getOutputs())
+            if (tensor && allocated_tensors.find(tensor.get()) == allocated_tensors.end())
             {
-                if (tensor) // 为所有输出tensor分配内存
+                // 计算tensor需要的内存大小
+                size_t tensor_size = tensor->getBytes();
+                
+                // 使用allocator分配内存地址偏移
+                size_t offset = allocator.alloc(tensor_size);
+                
+                // 获取实际的内存指针
+                void *ptr = allocator.getPtr();
+                if (ptr)
                 {
-                    // 计算tensor需要的内存大小
-                    size_t tensor_size = tensor->getBytes();
+                    // 计算实际的内存地址
+                    void *tensor_ptr = static_cast<char*>(ptr) + offset;
                     
-                    // 使用allocator分配内存地址偏移
-                    size_t offset = allocator.alloc(tensor_size);
+                    // 创建Blob对象
+                    Blob blob = make_ref<BlobObj>(runtime, tensor_ptr);
                     
-                    // 获取实际的内存指针
-                    void *ptr = allocator.getPtr();
-                    if (ptr)
-                    {
-                        // 计算实际的内存地址
-                        void *tensor_ptr = static_cast<char*>(ptr) + offset;
-                        
-                        // 创建Blob对象
-                        Blob blob = make_ref<BlobObj>(runtime, tensor_ptr);
-                        
-                        // 绑定内存到tensor
-                        tensor->setDataBlob(blob);
-                    }
+                    // 绑定内存到tensor
+                    tensor->setDataBlob(blob);
+                    
+                    // 标记为已分配
+                    allocated_tensors.insert(tensor.get());
                 }
             }
         }
