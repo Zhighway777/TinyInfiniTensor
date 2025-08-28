@@ -10,7 +10,55 @@ Shape infer_broadcast(const Shape &A, const Shape &B) {
     // REF: https://github.com/onnx/onnx/blob/main/docs/Broadcasting.md
     // =================================== 作业 ===================================
     
-    return {};
+    // 处理空张量的情况
+    if (A.empty()) return B;
+    if (B.empty()) return A;
+    
+    int rank_A = A.size();
+    int rank_B = B.size();
+    
+    // 确定最终的维度数
+    int max_rank = std::max(rank_A, rank_B);
+    
+    // 创建对齐后的形状
+    Shape local_A = A;
+    Shape local_B = B;
+    
+    // 在前面填充1，使两个形状的维度数相同
+    if (rank_A < max_rank) {
+        local_A.insert(local_A.begin(), max_rank - rank_A, 1);
+    }
+    if (rank_B < max_rank) {
+        local_B.insert(local_B.begin(), max_rank - rank_B, 1);
+    }
+    
+    // 创建结果形状
+    Shape result(max_rank);
+    
+    // 按照广播规则计算每个维度
+    for (int i = 0; i < max_rank; i++) {
+        int dim_A = local_A[i];
+        int dim_B = local_B[i];
+        
+        if (dim_A == dim_B) {
+            // 维度相同，直接使用
+            result[i] = dim_A;
+        } else if (dim_A == 1) {
+            // A 的维度为1，可以广播到 B 的维度
+            result[i] = dim_B;
+        } else if (dim_B == 1) {
+            // B 的维度为1，可以广播到 A 的维度
+            result[i] = dim_A;
+        } else {
+            // 维度不兼容，无法广播
+            IT_ASSERT(false, 
+                "Cannot broadcast shapes: dimension " + std::to_string(i) + 
+                " has incompatible sizes " + std::to_string(dim_A) + 
+                " and " + std::to_string(dim_B));
+        }
+    }
+    
+    return result;
 }
 
 int get_real_axis(const int &axis, const int &rank) {
