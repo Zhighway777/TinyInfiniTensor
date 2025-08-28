@@ -184,6 +184,7 @@ namespace infini
                 size_t offset = pair.second;
                 
                 // 计算实际的内存地址
+                //char* 以字节为单位进行指针算术
                 void *tensor_ptr = static_cast<char*>(base_ptr) + offset;
                 
                 // 创建Blob对象

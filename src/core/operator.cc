@@ -11,6 +11,7 @@ namespace infini
     {
         for (auto it = predecessors.begin(); it != predecessors.end();)
         {
+            //turn wear_ptr to shared_ptr
             if (it->lock() == op)
                 it = predecessors.erase(it);
             else
