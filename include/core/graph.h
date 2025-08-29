@@ -2,11 +2,14 @@
 #include "core/allocator.h"
 #include "core/operator.h"
 #include "core/tensor.h"
+#include "operators/transpose.h"
 #include <algorithm>
 #include <cstdint>
 
 namespace infini
 {
+    // 前向声明
+    class MatmulObj;
 
     class GraphObj : public Object
     {
@@ -27,6 +30,36 @@ namespace infini
         TensorVec addTensor(const TensorVec &tensors);
         void removeOperator(Operator op)
         {
+            // 清理操作符与张量的连接关系
+            for (auto& input : op->getInputs()) {
+                if (input) {
+                    input->removeTarget(op);
+                }
+            }
+            for (auto& output : op->getOutputs()) {
+                if (output) {
+                    output->setSource(nullptr);
+                }
+            }
+            
+            // 清理操作符之间的连接关系
+            // 从所有前驱操作符中移除对当前操作符的引用
+            auto predecessors = op->getPredecessors();
+            for (const auto& pred : predecessors) {
+                if (pred) {
+                    pred->removeSuccessors(op);
+                }
+            }
+            
+            // 从所有后继操作符中移除对当前操作符的引用
+            auto successors = op->getSuccessors();
+            for (const auto& succ : successors) {
+                if (succ) {
+                    succ->removePredecessors(op);
+                }
+            }
+            
+            // 从操作符列表中删除
             auto it = std::find(ops.begin(), ops.end(), op);
             if (it != ops.end())
                 ops.erase(it);
@@ -116,6 +149,36 @@ namespace infini
          * @brief If the nodes is sorted in topological order.
          */
         bool sorted;
+
+        /**
+         * @brief Add check function for inverse transpose
+         */
+        bool areInverseTransposes(const TransposeObj *transpose1, const TransposeObj *transpose2);
+        
+        /**
+         * @brief Add check function for same transpose
+         */
+        bool areSameTransposes(const TransposeObj *transpose1, const TransposeObj *transpose2);
+        
+        /**
+         * @brief Check if transpose swaps last two dimensions
+         */
+        bool isLastTwoDimsSwap(const TransposeObj *transpose);
+        
+        /**
+         * @brief Merge transpose into matmul operator
+         */
+        void mergeTransposeToMatmul(const Operator& transpose, const Operator& matmul);
+        
+        /**
+         * @brief Reconnect graph after removing operators
+         */
+        void reconnectGraph(const Operator& op1, const Operator& op2);
+        
+        /**
+         * @brief Clean up unused tensors
+         */
+        void cleanupUnusedTensors();
     };
 
 } // namespace infini
